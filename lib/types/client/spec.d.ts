@@ -15,18 +15,6 @@ export interface GenuiSpec {
     title?: string;
     /** Vertical gap between root items in px. */
     gap?: number;
-    /** Panel-only flag: `true` routes the fence to the session panel dock
-     * instead of the message flow (rendered by the same block, updated in
-     * place on every publish). */
-    panel?: boolean;
-    /** Panel APPEND flag (meaningful only with `panel: true`): instead of
-     * replacing the session panel, merge this spec INTO the existing one —
-     * same-labelled tabs get their items appended, new tabs are added, plain
-     * item lists are appended to the tail. Lets the model grow a panel
-     * incrementally without resending (or truncating) the accumulated content.
-     * Applies only when the fence body is fully complete, so a streaming
-     * partial parse never double-merges. */
-    append?: boolean;
     /** Root component list. */
     items: GenuiNode[];
 }
@@ -459,8 +447,7 @@ export interface GenuiQuiz {
 export declare function parseGenuiSpec(raw: string): GenuiSpec | null;
 /**
  * Wrap a bare component object into a col root. Returns null when `value` is
- * not component-shaped (no usable `type`). `panel`/`append` live on the root
- * spec, so they are hoisted onto the wrapper.
+ * not component-shaped (no usable `type`).
  */
 export declare function wrapSingleComponentRoot(value: unknown): GenuiSpec | null;
 /** Basic structural guard: is this object a valid GenuiSpec? */

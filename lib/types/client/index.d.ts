@@ -1,6 +1,6 @@
 /**
- * dsh-genui browser half: the ```dsh-ui fence renderer, the keyed toolview
- * for the `render_ui` tool, and the session panel dock.
+ * dsh-genui browser half: the ```dsh-ui fence renderer and the keyed toolview
+ * for the `render_ui` tool.
  *
  * Fence rendering is dual-mode, chosen at boot:
  * - **Registry channel** (contract hosts): the host's MarkdownText resolves
@@ -27,9 +27,9 @@ import { renderGenuiFence } from './fence-render.tsx';
  * either way — the on-demand loader still covers a cache miss. Exported for
  * tests. */
 export declare function prefetchGenuiAssets(): void;
-/** Cordis client entry: register the fence renderer on boot, the keyed
- * toolview for the render_ui tool, and the session panel dock; returning the
- * disposers lets cordis tear all registrations down on plugin unload. */
+/** Cordis client entry: register the fence renderer on boot and the keyed
+ * toolview for the render_ui tool; returning the disposers lets cordis tear
+ * all registrations down on plugin unload. */
 export declare function apply(ctx: Context): () => void;
 export declare const inject: string[];
 export { renderGenuiFence };

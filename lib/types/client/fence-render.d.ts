@@ -20,8 +20,6 @@ import type { GenuiSpec } from './spec.ts';
 export interface GenuiFenceSource {
     /** Stable structural id, e.g. `['assistant', seq, block, fence]` or `dom:<anchor>:<i>`. */
     readonly id: string;
-    /** Three-part order: [messageSeq, textBlockIndex, fenceIndex]. */
-    readonly order: readonly [number, number, number];
 }
 /** Context a fence renderer receives beside the raw source and React key. */
 export interface GenuiFenceContext {
@@ -43,16 +41,13 @@ export interface GenuiFenceContext {
 export declare function resolveGenuiSpec(raw: string, context?: GenuiFenceContext): GenuiSpec | null;
 /**
  * The resolved fence render for the DOM channel: `null` when the body is
- * unrepairable (the stock code block stays visible), otherwise the panel
- * publisher (`panel:true`; renders nothing in the flow — mounted as an empty
- * root so the taken-over block is hidden) or the inline GenuiBlock tree.
- * Shared verbatim by both channels.
+ * unrepairable (the stock code block stays visible), otherwise the inline
+ * GenuiBlock tree. Shared verbatim by both channels.
  */
 export declare function renderResolvedFenceNode(raw: string, key: Key, context?: GenuiFenceContext): ReactNode | null;
 /**
  * Registry-channel fence renderer (contract hosts): like the resolved node,
  * but an unrepairable body renders the fallback code block + settled
- * diagnostic — the host replaced its own block with our output — and an
- * unpublishable `panel:true` fence renders `null` (nothing in the flow).
+ * diagnostic — the host replaced its own block with our output.
  */
 export declare function renderGenuiFence(raw: string, key: Key, context?: GenuiFenceContext): ReactNode;
