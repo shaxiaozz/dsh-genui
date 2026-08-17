@@ -27,13 +27,12 @@
  *   paint (same pattern the annotation plugin proved on this host), and the
  *   1s sweep is the backstop.
  * - **Settled transition**: when `[data-streaming]` leaves the row, the
- *   mount re-renders with the stable source identity — the moment panels
- *   publish and durable state keys in (mirrors the registry channel's
- *   settled-source semantics; streaming renders are identity-less).
+ *   mount re-renders with the stable source identity — the moment durable
+ *   state keys in (mirrors the registry channel's settled-source semantics;
+ *   streaming renders are identity-less).
  * - Stable identity: the owning row's `data-chat-anchor-key` (session-stable,
  *   seq-derived) + the fence's ordinal among settled dsh-ui blocks in that
- *   row. `sourceId = dom:<anchor>:<ordinal>` feeds panel dedup and durable
- *   state.
+ *   row. `sourceId = dom:<anchor>:<ordinal>` feeds durable state.
  * - Actions ride the plugin-owned GenuiActionContext provider: every tree
  *   this channel mounts is wrapped with a handler that relays
  *   `[genui-action]` through the scoped conversation send — no host plumbing.
@@ -44,7 +43,7 @@
  * plugin's browser bundle mounts React roots, the model can only author
  * fence text, and unrepairable bodies stay stock code blocks.
  */
-import { Fragment, isValidElement, type Key, type ReactNode } from 'react'
+import { type Key, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
@@ -93,21 +92,12 @@ function isPlausibleFenceSurface(candidate: Element): boolean {
   return true
 }
 
-/** `renderResolvedFenceNode` returns a bare Fragment for `panel:true` fences
- * (the publisher renders nothing); every inline fence mounts a real tree.
- * The DOM channel uses this to tell an empty container that was WIPED by a
- * host re-render apart from an intentionally empty panel root. */
-function isPanelRoot(node: ReactNode): boolean {
-  return isValidElement(node) && node.type === Fragment
-}
-
 interface Mount {
   root: Root
   container: HTMLElement
   block: HTMLElement
   lastRaw: string
   lastSettled: boolean
-  lastNode: ReactNode
 }
 
 function isTextNode(node: Node): node is Text {
@@ -307,38 +297,6 @@ function fenceIndexOf(row: Element, block: Element): number {
 }
 
 /**
- * messageSeq estimate from the row's anchor key.
- *
- * The host's context key is `<kindLen>:<kind><id>` (e.g.
- * `14:assistant-step3:0`); the id of an assistant step is `<turn>:<step>` —
- * the ONLY per-message monotonic counter the host exposes in the DOM. Turn
- * and step strictly increase with message order, so a turn-based seq keeps
- * growing across page reloads: the panel store's persisted replay barrier
- * (hydration: replays at/below the persisted max seq are dead) depends on
- * this monotonicity. Without it every assistant step yields the SAME
- * constant (the kind-length prefix), so after a refresh the barrier equals
- * that constant and silently rejects every new panel fence (issue #4).
- *
- * Fallback (non-assistant rows, anchor-less Safari rows): the row's
- * document-order index among chat rows — monotonic within the current
- * render window, degraded across reloads.
- */
-function anchorSeqOf(row: Element): number {
-  const key = row.getAttribute('data-chat-anchor-key') ?? ''
-  const turnStep = /assistant-step(\d+):(\d+)$/.exec(key)
-  if (turnStep !== null) {
-    const turn = Number(turnStep[1])
-    const step = Number(turnStep[2])
-    if (Number.isFinite(turn) && Number.isFinite(step)) return turn * 1000 + step
-  }
-  const rows = document.querySelectorAll(`[data-chat-anchor-key], ${FLOW_ROW}`)
-  for (let i = 0; i < rows.length; i += 1) {
-    if (rows[i] === row) return i
-  }
-  return 0
-}
-
-/**
  * Install the DOM render channel. Returns a disposer that restores every
  * taken-over block and disconnects the observers.
  *
@@ -364,8 +322,8 @@ export function installDomFenceRenderer(
   }
 
   /** Render context for a block: session always; the stable source identity
-   * only once settled — streaming renders are identity-less (no panel
-   * publish, no durable state), mirroring the registry channel. */
+   * only once settled — streaming renders are identity-less (no durable
+   * state), mirroring the registry channel. */
   function contextOf(row: Element, block: Element, settled: boolean): { key: Key; context: GenuiFenceContext } {
     if (settled && row.getAttribute('data-chat-anchor-key') === null) {
       // Safari / fallback render path: the host omitted the row anchor (the
@@ -380,7 +338,7 @@ export function installDomFenceRenderer(
     const sessionId = sessionIdOf()
     const context: GenuiFenceContext = {
       ...(sessionId === undefined ? {} : { sessionId }),
-      ...(settled ? { source: { id: key as string, order: [anchorSeqOf(row), 0, fenceIndex] as const } } : {}),
+      ...(settled ? { source: { id: key as string } } : {}),
     }
     return { key, context }
   }
@@ -464,7 +422,7 @@ export function installDomFenceRenderer(
     }
     block.style.display = 'none'
     block.setAttribute(PROCESSED, '')
-    mounts.set(block, { root, container, block, lastRaw: raw, lastSettled: settled, lastNode: node })
+    mounts.set(block, { root, container, block, lastRaw: raw, lastSettled: settled })
   }
 
   /** Pre-paint repair: the host's React re-renders during streaming can wipe
@@ -534,10 +492,10 @@ export function installDomFenceRenderer(
         }
       }
       // A host re-render can also wipe the CONTENT of our container while
-      // leaving the node in place. An inline mount whose container came back
-      // empty (and was not empty by design — panel roots are) must be
+      // leaving the node in place. Every fence mount renders a real element
+      // tree, so a container that came back empty was wiped and must be
       // re-rendered, otherwise the block stays hidden behind an empty box.
-      const contentWiped = !isPanelRoot(mount.lastNode) && mount.container.childElementCount === 0
+      const contentWiped = mount.container.childElementCount === 0
       if (mount.lastRaw !== raw || mount.lastSettled !== settled || contentWiped) {
         const anchor = rowOf(block)
         const { key, context } = contextOf(anchor, block, settled)
@@ -596,7 +554,6 @@ export function installDomFenceRenderer(
         }
         mount.lastRaw = raw
         mount.lastSettled = settled
-        mount.lastNode = node
       }
     }
     repairSurgery()

@@ -75,7 +75,7 @@ export const GenuiBlock = memo(function GenuiBlock({ spec, stateKey }: GenuiBloc
   // v2.5/v2.6 answers registry: grouped radios record selections + question
   // metadata here; `submit` nodes grade locally (locked until 重新作答) or
   // collect into one action. Block-local state survives re-renders (streaming
-  // settle, panel updates) — selections persist while the block is mounted.
+  // settle) — selections persist while the block is mounted.
   // v2.7 durability: with a stateKey the state ALSO survives refresh/reopen —
   // loaded once at mount (seed for re-renders of the same content) and saved
   // on every change.

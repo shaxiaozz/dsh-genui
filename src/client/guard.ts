@@ -727,8 +727,6 @@ export function repairGenuiSpec(value: unknown): GenuiSpec | null {
   return {
     ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
     ...opt('gap', num(v.gap, 0, 96)),
-    ...opt('panel', v.panel === true ? true : undefined),
-    ...opt('append', v.append === true ? true : undefined),
     items: repairItems(v.items, ctx, 0),
   }
 }
@@ -738,9 +736,7 @@ export function repairGenuiSpec(value: unknown): GenuiSpec | null {
 /**
  * Count the nodes of a spec tree (every item, descending into tabs /
  * accordion / file-tree containers — the same descent `validateGenuiSpec`
- * walks). Shared by the panel fold (node-budget gate) and validation, so
- * the panel never runs a second, divergent traversal. `cap` bounds the walk
- * for hostile inputs; the panel passes `PANEL_LIMITS.maxNodes + 1` to detect
+ * walks). `cap` bounds the walk for hostile inputs, so a caller can detect
  * overflow without counting the whole tree.
  */
 export function countGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY): number {

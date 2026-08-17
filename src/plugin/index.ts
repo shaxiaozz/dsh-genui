@@ -135,8 +135,7 @@ Rules:
 - Durable state: 交互状态按「会话+内容指纹」持久化——刷新/重放同一内容恢复原状；换内容（换题、改 spec）自动清空。重渲染相同内容保留状态，渲染新内容重置状态。
 - Exam pattern: 每题一个 radio（group 题目名 + answer + explanation）+ 一个 submit（groups 全列）；用户答完点交卷，本地即时判分。仅当用户要新卷或追问建议时才重渲染。
 - Secrets ban: GenUI 不得索取密码、API Key、访问令牌、恢复码等秘密；需要时拒绝并解释。
-- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片（交付物型界面用）；围栏用于回答内联 UI。
-- Panel: "panel":true 围栏只渲染进会话面板 dock 并原地更新；"append":true 追加合并（同标签 tabs 追加/新标签加入/尾部追加）；面板上限 200 节点/200 次追加，满了发 replace 重建。面板组件来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字以内确认，不解释、不用普通围栏。`
+- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片（交付物型界面用）；围栏用于回答内联 UI。`
 
 /**
  * Register the GenUI output-language section and the render_ui tool.

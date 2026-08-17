@@ -53,7 +53,6 @@ const RENDER_UI_PARAMETERS: Record<string, unknown> = {
       properties: {
         title: { type: 'string', description: 'Short title shown as the card banner.' },
         gap: { type: 'number', description: 'Vertical gap between root items in px.' },
-        panel: { type: 'boolean', description: 'Panel-only: renders into the session panel dock instead of the message flow.' },
         items: {
           type: 'array',
           description: 'Root component list (white-listed vocabulary).',
@@ -134,9 +133,9 @@ function parseSpecJson(raw: string, shape: string): unknown {
 }
 
 /** Total node count of a repaired spec — the shared guard traversal
- * (`countGenuiNodes`) so the tool reports the SAME number the panel fold and
- * validation use. A local walker used to under-count specs whose content
- * lives inside tabs/accordion/file-tree (their children are not `.items`). */
+ * (`countGenuiNodes`) so the tool reports the SAME number validation uses.
+ * A local walker used to under-count specs whose content lives inside
+ * tabs/accordion/file-tree (their children are not `.items`). */
 function countNodes(spec: GenuiSpec): number {
   return countGenuiNodes(spec, GENUI_LIMITS.maxNodes)
 }
@@ -156,7 +155,7 @@ export function createRenderUiTool(): ToolDefinition {
     name: 'render_ui',
     description:
       'Render an interactive UI card in the conversation tool row by passing a GenUI spec (a white-listed component tree; the same vocabulary as the ```dsh-ui fence, see the system prompt). '
-      + 'Use it when the user asks for a structured panel, dashboard, or form that belongs in the tool row rather than inline in the reply. '
+      + 'Use it when the user asks for a structured dashboard, report, or form that belongs in the tool row rather than inline in the reply. '
       + 'The card is interactive client-side (tabs, buttons, inputs, switches); components carrying an "action" field send [genui-action] back to you when the user interacts, and you should re-render the updated UI.',
     parameters: RENDER_UI_PARAMETERS,
     output: {

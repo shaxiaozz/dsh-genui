@@ -128,7 +128,7 @@ function trySpec(candidate: string): GenuiSpec | null {
     if (isGenuiSpec(value)) return value
     // Single-component roots are part of the documented fence vocabulary
     // (e.g. a bare {"type":"callout",…} body) — wrap into a col so the
-    // items-gated pipeline renders them (panel/append hoisted).
+    // items-gated pipeline renders them.
     return wrapSingleComponentRoot(value)
   } catch {
     return null

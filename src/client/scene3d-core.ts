@@ -158,7 +158,7 @@ export async function mountScene(container: HTMLElement, scene: GenuiScene3D): P
   canvas.addEventListener('pointercancel', onPointerEnd)
   canvas.addEventListener('wheel', onWheel, { passive: false })
 
-  // Container-size sync: the panel is resizable and the window reflows, so a
+  // Container-size sync: the layout can reflow and the window resizes, so a
   // fixed mount-time width drifts. Event-driven like the orbit — a resize
   // renders exactly once, an idle scene still costs nothing.
   let lastWidth = width

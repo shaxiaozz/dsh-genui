@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Rendering error boundary: a component crash inside one GenUI block must
 // degrade to an inline alert, never take down the whole chat surface.
-// The boundary wraps all three render entrances (fence / toolview / panel).
+// The boundary wraps both render entrances (fence / toolview).
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ErrorBoundary } from '../src/client/ErrorBoundary.tsx'

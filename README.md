@@ -34,7 +34,7 @@ The plugin ships **two rendering channels** and picks one automatically at start
 - **Registry channel**: when the host exposes the `fence-registry` extension point (newer dsh builds), fences register through the host's streaming render pipeline and behave seamlessly with the host;
 - **DOM channel**: when the host lacks that extension point (including stock DSH and older builds), the plugin observes the session DOM and mounts its own render tree. Since 0.7.2 it **supports streaming rendering**: components appear as the model writes them — the first finished component shows up immediately, no need to wait for the whole reply. Since 0.8.3 fence discovery is **multi-surface**: it matches the stock `md-code-block` surface, the deepsuite-style `.code-block` / `.code-block-small` surfaces some host builds render instead, and — as a structural backstop — any element whose banner labels it `dsh-ui` and contains a `<pre>` body. If your dsh build renders fences with a different class name, they still render (and a one-time console warning tells you the host DOM drifted).
 
-Whichever channel is active, components, interactions, panels, and persistence behave identically.
+Whichever channel is active, components, interactions, and persistence behave identically.
 
 ---
 
@@ -100,7 +100,6 @@ dsh plugin --profile web add link:$PWD
 - **Honest interactions**: interactive components must carry `action`; buttons without one render disabled (kills the "looks clickable, does nothing" fake button); buttons with `action` show instant "triggered" local feedback (proof the local event fired, not that the model received it)
 - **Event loop**: buttons/switches/inputs/dropdowns/checkboxes/radios/textareas/quizzes carry `action`; click or blur sends back to the model, which updates the UI; same-name actions are debounced with a 300 ms trailing edge — rapid clicks merge into one (last value wins)
 - **Tool channel**: the `render_ui` tool renders the same spec as a card in the tool row (deliverable-style UI goes through the tool, answer-style UI through the fence)
-- **Session panel**: a persistent dock above the composer; `render_ui` / `panel: true` fences update the same surface in place; `/panel` opens it from the client (`/panel <instruction>` customizes via the model, `/panel clear` clears); the top border is draggable to resize; `append: true` merges incrementally — same-named tabs append content, new tabs get added; the whole panel caps at 200 nodes / 200 appends, after which the model should send `replace` to rebuild
 - **Self-healing & limits**: every fence passes a spec guard — bad nodes are silently dropped, numbers clamped, strings truncated; the whole tree is capped at 200 nodes / 8 nesting levels; pathological specs never crash the UI
 - **Chart error self-healing**: mermaid failures auto-retry with repairs (strip backticks, quote Chinese/space labels, remove `<br/>`) before degrading to source; a broken chart never hits the screen
 - **Accessibility**: tabs/accordions/switches/progress bars carry full ARIA and keyboard navigation (arrow keys switch tabs, Home/End jump)

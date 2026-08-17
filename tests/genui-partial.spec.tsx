@@ -23,10 +23,14 @@ describe('parsePartialGenuiSpec', () => {
     expect((spec!.items[0] as { type: string }).type).toBe('callout')
   })
 
-  it('hoists panel/append from a single-component root onto the wrapper', () => {
+  it('ignores legacy panel/append fields on a single-component root', () => {
+    // Panel routing was removed: the old fields must not block the wrap, so
+    // the fence still streams inline. The wrapper carries neither field (the
+    // raw node is repaired downstream, where the whitelist drops them).
     const spec = parsePartialGenuiSpec('{"type":"text","content":"x","panel":true,"append":true}')
-    expect(spec?.panel).toBe(true)
-    expect(spec?.append).toBe(true)
+    expect(spec?.items).toHaveLength(1)
+    expect(spec).not.toHaveProperty('panel')
+    expect(spec).not.toHaveProperty('append')
   })
 
   it('still rejects non-component roots without an items array', () => {

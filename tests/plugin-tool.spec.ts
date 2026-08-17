@@ -28,7 +28,7 @@ describe('render_ui tool definition', () => {
     // harness bridge for bare-object parameters).
     const specProps = (spec as { properties?: Record<string, unknown> }).properties
     expect(specProps).toBeDefined()
-    for (const key of ['title', 'gap', 'panel', 'items']) {
+    for (const key of ['title', 'gap', 'items']) {
       expect(specProps![key]).toBeDefined()
     }
   })
@@ -185,7 +185,7 @@ describe('validate_dsh_ui tool', () => {
     expect(value).toContain('多 1 个 }')
   })
 
-  it('counts nodes inside tabs like the panel fold does', async () => {
+  it('counts nodes inside tabs via the shared guard traversal', async () => {
     const spec = {
       items: [{ type: 'tabs', tabs: [
         { label: 'A', items: [text('a1'), text('a2')] },

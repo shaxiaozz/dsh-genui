@@ -81,7 +81,7 @@ describe('tier-2 structural repair (settled messages only)', () => {
     '{"title":"x","items":[{"type":"text","content":"半截'
 
   it('repairs a mismatched closer once settled', () => {
-    render(<div>{renderGenuiFence(STRAY_CLOSER, 't1', { source: { id: 's', order: [1, 0, 0] } })}</div>)
+    render(<div>{renderGenuiFence(STRAY_CLOSER, 't1', { source: { id: 's' } })}</div>)
     expect(screen.queryByRole('alert')).toBeNull()
     // The repaired table renders silently — no amber note.
     expect(screen.queryByRole('note')).toBeNull()
@@ -89,7 +89,7 @@ describe('tier-2 structural repair (settled messages only)', () => {
   })
 
   it('repairs a missing closer once settled', () => {
-    render(<div>{renderGenuiFence(MISSING_CLOSER, 't2', { source: { id: 's', order: [1, 0, 0] } })}</div>)
+    render(<div>{renderGenuiFence(MISSING_CLOSER, 't2', { source: { id: 's' } })}</div>)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.queryByRole('note')).toBeNull()
     expect(document.body.textContent).toContain('半截')
@@ -111,7 +111,7 @@ describe('tier-2 structural repair (settled messages only)', () => {
     '{"title":"DSH 侧可复用缝隙","gap":10,"items":[{"type":"table","columns":["缝隙","作用","recap 用法"],"rows":[["ctx.llm","provider 中立 LLM 流式服务","recap 生成调用（compact-basic / dsh-rewind 同款）"],["ctx.commands","人类直接命令注册（/compact 模式）","注册 /recap，直接执行、零模型轮询"],["session 事件流","append-only 事件源（user/message、tool/result、request/header…）","recap 从事件流折叠来源 + 追加 log-only session/recap 事件"],["ctx.sessionTitle","异步 LLM 会话元数据模板","复制它的 get/refresh/register 服务形态"],["ctx.sessionProjections + Cache","状态驱动折叠单元，持久化缓存供 GUI 冷读","把 recap 注册为投影单元，GUI 免读全量日志"],["ctx.sessionQuery","会话读取/搜索","recap 历史检索"],["client-modules","dsh.client 声明 + /plugins/<id>/client.js","Web UI 渲染 recap 卡片"]}]}]}'
 
   it('repairs the real-world mismatched rows close', () => {
-    render(<div>{renderGenuiFence(REAL_WORLD, 't4', { source: { id: 's', order: [1, 0, 0] } })}</div>)
+    render(<div>{renderGenuiFence(REAL_WORLD, 't4', { source: { id: 's' } })}</div>)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.queryByRole('note')).toBeNull()
     // The repaired table renders all seven rows.
@@ -212,7 +212,7 @@ describe('automatic quote-escape repair', () => {
     // A body cut mid-structure: the partial parser renders the finished
     // prefix as UI; a settled message additionally heals the whole body.
     const CUT = '{"title":"x","items":[{"type":"text","content":"补全"}'
-    render(<div>{renderGenuiFence(CUT, 'r7', { sessionId: 's', source: { id: 'x', order: [1, 0, 0] } })}</div>)
+    render(<div>{renderGenuiFence(CUT, 'r7', { sessionId: 's', source: { id: 'x' } })}</div>)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(document.body.textContent).toContain('补全')
   })
@@ -233,7 +233,7 @@ describe('automatic quote-escape repair', () => {
 
   it('completes an unterminated string for settled messages (tier-2)', () => {
     const CUT = '{"title":"x","items":[{"type":"text","content":"没闭合'
-    render(<div>{renderGenuiFence(CUT, 'r10', { sessionId: 's', source: { id: 'x', order: [1, 0, 0] } })}</div>)
+    render(<div>{renderGenuiFence(CUT, 'r10', { sessionId: 's', source: { id: 'x' } })}</div>)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(document.body.textContent).toContain('没闭合')
     expect(screen.queryByRole('note')).toBeNull()

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.0] - 2026-08-17
+### 移除（BREAKING）
+- **会话面板（session panel dock）整体移除**：composer 上方的常驻 dock、`/panel` 斜杠命令（含 `/panel <指令>` / `/panel clear`）、面板快照 store 与其 localStorage 条目（`dsh.genui.panel`）、面板拖拽调高、`append` 增量合并与面板级 200 节点 / 200 追加预算、面板重放屏障与本地覆盖，全部删除。删除 `src/client/panel.tsx`、`panel-store.ts`、`panel-command.ts`（−775 行源码）；client 入口不再订阅 `inputTriggers`、不再注册 dock 与面板动作回路
+- **spec 根字段 `panel` / `append` 移除**：`GenuiSpec` 不再声明这两个字段；`render_ui` 工具参数 schema 去掉 `panel`；注入的系统提示删除整条 Panel 词汇表规则（`Secrets ban` 等其余规则不变）
+- **降级而非报错**：模型若仍输出 `panel:true` / `append:true`，`repairGenuiSpec` 的根字段白名单（`title`/`gap`/`items`）静默丢弃这两个字段，围栏**照常内联渲染**——不拒绝、不保留代码块、不告警。`wrapSingleComponentRoot` 同步取消提升逻辑，单组件根仍正常包裹
+### 变更
+- **`render_ui` 工具卡片保留**，仅砍掉向面板 store 的双写：`GenuiToolView` 去掉 publish effect（不再需要 `useEffect`），工具行卡片渲染与持久化身份不变；工具描述里的 "structured panel" 改为 "structured dashboard, report"
+- **围栏身份收敛**：`GenuiFenceSource.order`（三段顺序 `[messageSeq, textBlockIndex, fenceIndex]`）与 DOM 通道的 `anchorSeqOf()` 一并删除——面板折叠是它们唯一的读者，`source.id` 仍承担持久化键与错误边界 key
+- `countGenuiNodes` / `guard.ts` 的注释去掉面板折叠语境，共享遍历行为不变
+### 文档
+- README / README.zh-CN 删除「会话面板」特性条目，双通道说明去掉「面板」一致性承诺；截图与 30+ 组件条目中的「数据面板 / 折叠面板」指内联渲染与 accordion 组件，保留
+### 测试
+- 389 → 328（−61）：删除 `genui-panel.spec.tsx`（−45）、`panel-append.spec.tsx`（−7）、`panel-command.spec.ts`（−7），`dom-fence.spec.tsx` 删除 issue #4 持久化重放屏障 describe（−2，屏障已随面板一并移除）
+- 保留回归价值而非直接删测：面板相关断言改写为「遗留字段降级」覆盖——guard / partial 断言 `panel`/`append` 被白名单丢弃且围栏仍产出内联 spec；`dom-fence.spec.tsx` 的 Safari 同行兄弟身份钉（`dom:unknown:N` 碰撞）改为经耐久状态观测：两个**内容完全相同**的围栏使指纹恒等，只有身份能区分 `fenceStateKey`，身份折叠会让 `dsh.genui.interaction` 只落 1 条而非 2 条
+- ⚠️ 本次改动**未能在本地执行验证**：`vitest.config.ts` 从 `DSH_ROOT`（默认 `~/.dsh/source/current`）解析宿主 peer 包，该源码树在当前机器上不存在，所有测试文件在 import 阶段即失败——已在干净 `main` 上复现同样结果（32 文件同样失败），与本次变更无关。CI 上应正常运行
+
 ## [0.8.6] - 2026-08-16
 ### 修复
 - **原版 DSH（0.1.0-rc.6）壳上 dsh-ui 围栏全部静默不渲染**：client 入口硬注入声明 `inject: ['slots','sessions','inputTriggers']` 把 `inputTriggers` 当成了激活前置——但 cordis 的 `inject` 是**硬激活门控**：声明的服务永不出现（原版 DSH 壳没有任何插件提供 `inputTriggers` 服务，仅有 vision-toolkit 以 `ctx.inject()` 可选订阅）→ fiber 永久停在 waiting、`apply()` 永不执行 → 渲染器整体未启动：围栏保持代码块、控制台零报错。修复：从硬注入列表移除 `inputTriggers`，`/panel` 改为 `ctx.inject(['inputTriggers'], …)` **可选订阅**（服务与 slots/sessions 由不同 bundle 并发提供，任意到场顺序都能正确注册；缺失时仅不注册 `/panel`，渲染不受影响）；带该服务的宿主行为不变，原版壳上 GenUI 恢复渲染

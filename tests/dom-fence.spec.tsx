@@ -8,11 +8,13 @@ import { createRoot } from 'react-dom/client'
 import type { Context } from '@deepseek-ai/cordis'
 import { installDomFenceRenderer, setDomRootFactory } from '../src/client/dom-fence.tsx'
 import { inject } from '../src/client/index.tsx'
-import { clearSessionPanel, getPanelSpec } from '../src/client/panel-store.ts'
 
 const VALID_SPEC = '{"title":"卡片","items":[{"type":"text","content":"你好，世界"}]}'
 const BUTTON_SPEC = '{"items":[{"type":"button","label":"刷新","action":"refresh"}]}'
-const PANEL_SPEC = '{"panel":true,"title":"面板A","items":[{"type":"text","content":"A"}]}'
+/** A fence still carrying the REMOVED `panel` field: the session panel dock
+ * is gone, so the guard drops the dead field and the fence must degrade to a
+ * normal inline render — never vanish, never fall back to a code block. */
+const LEGACY_PANEL_SPEC = '{"panel":true,"title":"面板A","items":[{"type":"text","content":"甲内容"}]}'
 const BROKEN_SPEC = '{"items":[{"type":"text","content":'
 
 function makeCtx(sessionId: string | undefined, send: ReturnType<typeof vi.fn>): Context {
@@ -76,6 +78,7 @@ async function tick(ms = 40): Promise<void> {
 afterEach(() => {
   cleanup()
   document.body.innerHTML = ''
+  localStorage.clear()
   vi.restoreAllMocks()
 })
 
@@ -176,28 +179,29 @@ describe('installDomFenceRenderer', () => {
     }
   })
 
-  it('publishes a streaming panel:true fence only after the reply settles', async () => {
+  it('renders a fence carrying the removed panel field inline, streaming and settled', async () => {
+    // 面板 dock 移除后，`panel:true` 只是一个被 guard 丢弃的死字段：这样的
+    // 围栏必须降级为普通内联渲染（流式期间按内容接管，落定后保持），而不是
+    // 渲染成空容器或退回代码块。
     const row = assistantRow('s9c', true)
-    const block = stockCodeBlock('{"panel":true,"title":"面板A","items":[{"type":"text","content":"A"}]', '')
+    const block = stockCodeBlock('{"panel":true,"title":"面板A","items":[{"type":"text","content":"甲内容"}]', '')
     row.appendChild(block)
     document.body.appendChild(row)
     const send = vi.fn()
     const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
     try {
       await tick()
-      // Streaming: the block is taken over (hidden, empty root) but the
-      // panel store stays untouched — identity-less renders never publish.
+      // 流式：首个完成组件即渲染，正文可见（旧实现在这里是空容器）。
       expect(block.hasAttribute('data-genui-rendered')).toBe(true)
       expect(block.style.display).toBe('none')
-      expect(row.querySelector('.genui-dom-fence')?.textContent).toBe('')
-      expect(getPanelSpec('sess-1')).toBeNull()
-      // Settle: the label materialises (host behaviour) and the mount
-      // re-renders with the stable source → publish once.
+      expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('甲内容')
+      // 落定：标签出现（宿主行为），带稳定身份重渲染 → 依然内联可见。
       const label = block.querySelector('div')
       label!.textContent = 'dsh-ui'
       row.removeAttribute('data-streaming')
       await tick()
-      expect(getPanelSpec('sess-1')?.title).toBe('面板A')
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('甲内容')
     } finally {
       dispose()
     }
@@ -293,9 +297,9 @@ describe('installDomFenceRenderer', () => {
     }
   })
 
-  it('publishes a panel:true fence to the panel store without mounting UI', async () => {
+  it('mounts a settled fence carrying the removed panel field as normal inline UI', async () => {
     const row = assistantRow('s12')
-    const block = stockCodeBlock(PANEL_SPEC, 'dsh-ui')
+    const block = stockCodeBlock(LEGACY_PANEL_SPEC, 'dsh-ui')
     row.appendChild(block)
     document.body.appendChild(row)
     const send = vi.fn()
@@ -304,11 +308,11 @@ describe('installDomFenceRenderer', () => {
       await tick()
       expect(block.hasAttribute('data-genui-rendered')).toBe(true)
       expect(block.style.display).toBe('none')
-      // The publisher renders nothing: the mounted root is an empty container.
+      // 曾经这里会挂一个「只发布不渲染」的空容器；现在必须是真实 UI。
       const container = row.querySelector('.genui-dom-fence')
       expect(container).not.toBeNull()
-      expect(container!.textContent).toBe('')
-      expect(getPanelSpec('sess-1')?.title).toBe('面板A')
+      expect(container!.textContent).toContain('面板A')
+      expect(container!.textContent).toContain('甲内容')
     } finally {
       dispose()
     }
@@ -389,13 +393,16 @@ describe('anchor-less rows (Safari fallback render path)', () => {
   })
 
   it('assigns distinct fallback identities to sibling fences in an anchor-less row', async () => {
-    // 两个 panel:true 围栏在同一无锚点行内不得折叠成同一个 dom:unknown:N
-    // source：后一个 fence 的 replace 应赢得 fold（证明是两个不同 source），
-    // 而不是被当作第一个的幂等重放丢弃（那样快照会停在「面板A」）。
+    // 两个围栏在同一无锚点行内不得折叠成同一个 dom:unknown:N。面板 dock 移除
+    // 后，身份的唯一去处是耐久状态键（fenceStateKey = 会话 + 身份 + 内容指纹），
+    // 所以用「内容完全相同」的两个围栏来观察：内容指纹相同，键能否区分只取决
+    // 于身份。身份不同 → store 里两条独立记录；一旦折叠 → 两者写进同一个键，
+    // 只剩一条。
     const row = document.createElement('div')
     row.setAttribute('data-chat-flow-kind', 'assistant-step')
-    const first = stockCodeBlock('{"panel":true,"title":"面板A","items":[{"type":"text","content":"A"}]}', 'dsh-ui')
-    const second = stockCodeBlock('{"panel":true,"title":"面板B","items":[{"type":"text","content":"B"}]}', 'dsh-ui')
+    const twin = '{"items":[{"type":"radio","label":"题","group":"q1","answer":0,"explanation":"解析","options":["甲","乙"]}]}'
+    const first = stockCodeBlock(twin, 'dsh-ui')
+    const second = stockCodeBlock(twin, 'dsh-ui')
     row.appendChild(first)
     row.appendChild(second)
     document.body.appendChild(row)
@@ -403,7 +410,20 @@ describe('anchor-less rows (Safari fallback render path)', () => {
     const dispose = installDomFenceRenderer(makeCtx('sess-safari-3', send), send)
     try {
       await tick()
-      expect(getPanelSpec('sess-safari-3')?.title).toBe('面板B')
+      const groups = row.querySelectorAll('.genui-dom-fence [role="radiogroup"]')
+      expect(groups).toHaveLength(2)
+      // 各自作答（选不同项），各自落盘。
+      fireEvent.click(groups[0]!.querySelectorAll('input')[0]!)
+      fireEvent.click(groups[1]!.querySelectorAll('input')[1]!)
+      await tick(400) // 耐久保存的 300ms 去抖
+      const store = JSON.parse(localStorage.getItem('dsh.genui.interaction') ?? '{"blocks":{}}') as {
+        blocks: Record<string, { answers?: Record<string, string> }>
+      }
+      const keys = Object.keys(store.blocks)
+      expect(keys).toHaveLength(2)
+      // 两条记录互不干扰：各自记住了自己那一票。
+      const chosen = keys.map(k => store.blocks[k]!.answers?.q1).sort()
+      expect(chosen).toEqual(['乙', '甲'])
     } finally {
       dispose()
     }
@@ -455,79 +475,6 @@ describe('anchor-less rows (Safari fallback render path)', () => {
     } finally {
       dispose()
       warn.mockRestore()
-    }
-  })
-})
-
-describe('persisted replay barrier across page refresh (issue #4)', () => {
-  // 回归钉 #4: 宿主 anchor key 是 `<kindlen>:<kind><id>`，assistant step 的
-  // id 是 `<turn>:<step>`（如 `14:assistant-step3:0`）。旧实现取 key 里第一个
-  // 数字 = kind 长度常量 → 所有消息的 order[0] 相同 → 刷新后 replayBarrier
-  // (= 持久化 maxSeenSeq = 该常量) 拒绝一切新 panel 围栏，dock 冻结且零日志。
-  // 修复：order[0] 改为 turn*1000+step（随消息顺序严格单调），刷新后新消息
-  // 的 turn 必然大于持久化屏障 → 正常更新。
-  const PANEL = (title: string, content: string) =>
-    `{"panel":true,"title":"${title}","items":[{"type":"text","content":"${content}"}]}`
-
-  it('lets a new-turn panel fence update the dock after a refresh', async () => {
-    const send = vi.fn()
-
-    // ── 页面 1：turn 2 与 turn 3 的两个 panel 围栏（宿主真实 key 格式）──
-    const row2 = assistantRow('14:assistant-step2:0')
-    const blockA = stockCodeBlock(PANEL('面板A', 'A'), 'dsh-ui')
-    row2.appendChild(blockA)
-    document.body.appendChild(row2)
-    const row3 = assistantRow('14:assistant-step3:0')
-    const blockB = stockCodeBlock(PANEL('面板B', 'B'), 'dsh-ui')
-    row3.appendChild(blockB)
-    document.body.appendChild(row3)
-    let dispose = installDomFenceRenderer(makeCtx('sess-refresh', send), send)
-    try {
-      await tick()
-      expect(getPanelSpec('sess-refresh')?.title).toBe('面板B')
-
-      // ── 刷新：内存态清空（localStorage 存活），新页面重装渲染器 ──
-      dispose()
-      clearSessionPanel('sess-refresh')
-      document.body.innerHTML = ''
-      dispose = installDomFenceRenderer(makeCtx('sess-refresh', send), send)
-      await tick()
-
-      // 历史重放（同一 DOM 重建）：被持久化屏障杀死，dock 保持面板B
-      document.body.appendChild(row2)
-      document.body.appendChild(row3)
-      await tick()
-      expect(getPanelSpec('sess-refresh')?.title).toBe('面板B')
-
-      // ── 新消息（turn 4）：order[0]=4000 > 屏障 3000 → dock 必须更新 ──
-      const row4 = assistantRow('14:assistant-step4:0')
-      const blockC = stockCodeBlock(PANEL('面板C', 'C'), 'dsh-ui')
-      row4.appendChild(blockC)
-      document.body.appendChild(row4)
-      await tick()
-      expect(getPanelSpec('sess-refresh')?.title).toBe('面板C')
-    } finally {
-      dispose()
-    }
-  })
-
-  it('keeps per-step monotonicity within one turn (later step wins)', async () => {
-    // 同一 turn 内的多步：step 必须参与 seq，后一步的围栏覆盖前一步。
-    const send = vi.fn()
-    const rowA = assistantRow('14:assistant-step5:0')
-    const blockA = stockCodeBlock(PANEL('面板甲', '甲'), 'dsh-ui')
-    rowA.appendChild(blockA)
-    document.body.appendChild(rowA)
-    const rowB = assistantRow('14:assistant-step5:1')
-    const blockB = stockCodeBlock(PANEL('面板乙', '乙'), 'dsh-ui')
-    rowB.appendChild(blockB)
-    document.body.appendChild(rowB)
-    const dispose = installDomFenceRenderer(makeCtx('sess-refresh-step', send), send)
-    try {
-      await tick()
-      expect(getPanelSpec('sess-refresh-step')?.title).toBe('面板乙')
-    } finally {
-      dispose()
     }
   })
 })
@@ -640,10 +587,10 @@ describe('multi-surface discovery across host DOM shapes (issue #6)', () => {
   })
 
   it('renders both fences when two .code-block surfaces sit side by side in one row', async () => {
-    // 两个独立 deepsuite 围栏在同一行：不得被嵌套去重误伤，各自渲染且身份不折叠。
+    // 两个独立 deepsuite 围栏在同一行：不得被嵌套去重误伤，各自渲染且内容不串。
     const row = assistantRow('s25')
-    const first = deepsuiteCodeBlock('{"panel":true,"title":"面板甲","items":[{"type":"text","content":"甲"}]}', 'dsh-ui')
-    const second = deepsuiteCodeBlock('{"panel":true,"title":"面板乙","items":[{"type":"text","content":"乙"}]}', 'dsh-ui')
+    const first = deepsuiteCodeBlock('{"items":[{"type":"text","content":"甲内容"}]}', 'dsh-ui')
+    const second = deepsuiteCodeBlock('{"items":[{"type":"text","content":"乙内容"}]}', 'dsh-ui')
     row.appendChild(first)
     row.appendChild(second)
     document.body.appendChild(row)
@@ -653,7 +600,10 @@ describe('multi-surface discovery across host DOM shapes (issue #6)', () => {
       await tick()
       expect(first.hasAttribute('data-genui-rendered')).toBe(true)
       expect(second.hasAttribute('data-genui-rendered')).toBe(true)
-      expect(getPanelSpec('sess-6-6')?.title).toBe('面板乙')
+      const containers = row.querySelectorAll('.genui-dom-fence')
+      expect(containers).toHaveLength(2)
+      expect(containers[0]!.textContent).toContain('甲内容')
+      expect(containers[1]!.textContent).toContain('乙内容')
     } finally {
       dispose()
     }
@@ -745,8 +695,8 @@ describe('shared markdown root with mixed code blocks (issue #13)', () => {
   it('renders the dsh-ui fence when the shared root contains TWO dsh-ui blocks', async () => {
     const row = assistantRow('s31')
     const root = markdownRoot()
-    const first = stockCodeBlock(PANEL_SPEC, 'dsh-ui')
-    const second = stockCodeBlock('{"panel":true,"title":"面板B","items":[{"type":"text","content":"B"}]}', 'dsh-ui')
+    const first = stockCodeBlock(LEGACY_PANEL_SPEC, 'dsh-ui')
+    const second = stockCodeBlock('{"title":"面板B","items":[{"type":"text","content":"乙内容"}]}', 'dsh-ui')
     root.appendChild(first)
     root.appendChild(second)
     row.appendChild(root)
@@ -755,12 +705,14 @@ describe('shared markdown root with mixed code blocks (issue #13)', () => {
     const dispose = installDomFenceRenderer(makeCtx('sess-13-2', send), send)
     try {
       await tick()
-      // 两个 dsh-ui 块各自接管；面板 fold 走各自的 source，后者赢得 dock。
+      // 两个 dsh-ui 块各自接管、各自挂容器，内容互不覆盖。
       expect(first.hasAttribute('data-genui-rendered')).toBe(true)
       expect(second.hasAttribute('data-genui-rendered')).toBe(true)
       expect(root.style.display).toBe('')
-      expect(root.querySelectorAll('.genui-dom-fence')).toHaveLength(2)
-      expect(getPanelSpec('sess-13-2')?.title).toBe('面板B')
+      const containers = root.querySelectorAll('.genui-dom-fence')
+      expect(containers).toHaveLength(2)
+      expect(containers[0]!.textContent).toContain('甲内容')
+      expect(containers[1]!.textContent).toContain('乙内容')
     } finally {
       dispose()
     }

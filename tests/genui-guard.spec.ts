@@ -54,11 +54,20 @@ describe('repairGenuiSpec: single-component roots', () => {
     expect(isGenuiSpec(spec)).toBe(true)
   })
 
-  it('hoists panel/append from the bare component onto the wrapper', () => {
-    const spec = repairGenuiSpec({ type: 'text', content: 'x', panel: true, append: true })
-    expect(spec?.panel).toBe(true)
-    expect(spec?.append).toBe(true)
-    const inner = spec?.items[0] as { panel?: unknown; append?: unknown }
+  it('ignores legacy panel/append fields and still yields an inline spec', () => {
+    // Panel routing was removed. A model still emitting the old fields must
+    // DEGRADE to inline rendering, never be rejected: the repair whitelist
+    // (title/gap/items) simply drops them, on the root and on the node.
+    const root = repairGenuiSpec({ panel: true, append: true, items: [{ type: 'text', content: 'x' }] })
+    expect(root?.items).toHaveLength(1)
+    expect(root).not.toHaveProperty('panel')
+    expect(root).not.toHaveProperty('append')
+
+    const bare = repairGenuiSpec({ type: 'text', content: 'x', panel: true, append: true })
+    expect(bare?.items).toHaveLength(1)
+    expect((bare?.items[0] as { type: string }).type).toBe('text')
+    expect(bare).not.toHaveProperty('panel')
+    const inner = bare?.items[0] as { panel?: unknown; append?: unknown }
     expect(inner.panel).toBeUndefined()
     expect(inner.append).toBeUndefined()
   })

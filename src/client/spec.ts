@@ -57,18 +57,6 @@ export interface GenuiSpec {
   title?: string
   /** Vertical gap between root items in px. */
   gap?: number
-  /** Panel-only flag: `true` routes the fence to the session panel dock
-   * instead of the message flow (rendered by the same block, updated in
-   * place on every publish). */
-  panel?: boolean
-  /** Panel APPEND flag (meaningful only with `panel: true`): instead of
-   * replacing the session panel, merge this spec INTO the existing one —
-   * same-labelled tabs get their items appended, new tabs are added, plain
-   * item lists are appended to the tail. Lets the model grow a panel
-   * incrementally without resending (or truncating) the accumulated content.
-   * Applies only when the fence body is fully complete, so a streaming
-   * partial parse never double-merges. */
-  append?: boolean
   /** Root component list. */
   items: GenuiNode[]
 }
@@ -565,29 +553,24 @@ export function parseGenuiSpec(raw: string): GenuiSpec | null {
   // Single-component roots are part of the documented fence vocabulary
   // (e.g. {"type":"callout","tone":"info","title":"…","content":"…"} as the
   // whole body) — wrap them into a col so the items-gated pipeline renders
-  // them. panel/append hoist onto the wrapper so panel routing keeps working.
+  // them.
   return wrapSingleComponentRoot(value)
 }
 
 /**
  * Wrap a bare component object into a col root. Returns null when `value` is
- * not component-shaped (no usable `type`). `panel`/`append` live on the root
- * spec, so they are hoisted onto the wrapper.
+ * not component-shaped (no usable `type`).
  */
 export function wrapSingleComponentRoot(value: unknown): GenuiSpec | null {
   if (typeof value !== 'object' || value === null) return null
-  const v = value as { type?: unknown; panel?: unknown; append?: unknown }
+  const v = value as { type?: unknown }
   if (typeof v.type !== 'string' || v.type === '') return null
-  // GenuiCol is structurally a GenuiSpec (items + optional gap); panel and
-  // append are GenuiSpec-only root flags, added after construction.
+  // GenuiCol is structurally a GenuiSpec (items + optional gap).
   const wrapped: GenuiCol = {
     type: 'col',
     items: [value as GenuiNode],
   }
-  const root: GenuiSpec = wrapped
-  if (v.panel === true) root.panel = true
-  if (v.append === true) root.append = true
-  return root
+  return wrapped
 }
 
 /** Basic structural guard: is this object a valid GenuiSpec? */
