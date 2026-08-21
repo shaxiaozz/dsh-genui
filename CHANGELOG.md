@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.1] - 2026-08-22
+### 发布
+- **peerDeps 对齐 dsh 0.1.1-rc.2**：8 个 `dsh-*` peer 包 `^0.1.0-rc.6 → ^0.1.1-rc.2`；`@deepseek-ai/cordis` 保持 `^4.0.1`（宿主 vendor 仍是 4.0.1，未变）。**这不是可选升级**：npm/pnpm 的 caret 范围对预发布版本只在同一 `major.minor.patch` 元组内匹配——`^0.1.0-rc.6` 明确**不满足** `0.1.1-rc.2`（`0.1.1-rc.1` 同样不满足，`0.1.1` 正式版才满足）。0.9.0 装进 0.1.1-rc.x 宿主会直接报未满足的 peer，必须随宿主小版本走
+- **代码零改动**：本次仅依赖对齐。插件对宿主的运行时值 import 只有 `@deepseek-ai/cordis`（`Context`）与 `@deepseek-ai/dsh-client-ui-primitives`（`CodeBlock`/`DiffBlock`/`JsonTree` 及 `registerFenceRenderer` 探测），其余 7 个包全是 `import type`；rc.6→rc.2 期间这些消费面均未破坏：
+  - `ui-primitives` 只增不减（新增 `useAnchoredPosition` / `useDismissOnOutsidePointer` / `BrandWordmarkProps` 导出），markdown `CodeBlock` 仍挂 `md-code-block` 类名——**DOM 通道的主表面契约未变**；同期 markdown 表格新增 `md-table-wide` 包装与 hover 滚动条，属围栏外的兄弟节点，不影响围栏发现
+  - `ui-tool` 的 `ToolCallViewProps` 未变（新增的 `home?` 落在 `ToolCallOwnerProps`，可选字段；`InjectFace<ToolHostDescriptionInjected>` 只加在 `ToolTreeProps`/`ToolDetailsProps` 上，本插件不消费这两个类型）
+  - `dsh-tools` 的 `ToolDefinition`/`JsonSchemaNode`/`GenericCallView`/`GenericResultView`、`dsh-session` 的 `JsonValue`、`dsh-llm` 的 `ContentBlock`、`dsh-invariants` 的 `InvariantInstaller`、`webServer.register(route)` 签名均无变化（llm 的 `ReplayEnvelope`/`prepareCall`、tools 的 code-mode 图像回传都在本插件消费面之外）
+  - 客户端仍走 DOM 通道：rc.2 宿主依旧不提供 `registerFenceRenderer` 扩展点，双通道选择逻辑与 0.9.0 一致
+- **lockfile 全量重建**：旧 lockfile 把 30+ 个传递依赖钉在 rc.6（`pnpm install` 增量更新后 `pnpm peers check` 报 20+ 条 unmet peer），清空 `node_modules` + lockfile 重装后归零；`pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 58 条 rc.6 条目改写为 rc.2，pnpm 另自动补入 12 条本次新进入依赖图的传递包（`dsh-sandbox` / `dsh-shell` / `dsh-plan-mode` / `dsh-tool-todo` 等），共 70 条——rc.2 发布未满 pnpm supply-chain 最小年龄，消费者安装必需该白名单
+- **lib/ 重编译**：产物随本次重装刷新；`lib/assets/mermaid.js` 内联的 DOMPurify 由 3.4.13 升至 3.4.14（mermaid 自身仍锁 11.16.0、three 仍锁 0.180.0，仅传递依赖在干净重装时前进）
+### 修复
+- **发布脚本在 Windows 上无法运行（本次升级中暴露，非 rc.2 引入）**：`scripts/prepack.mjs` 与 `scripts/verify-pack.mjs` 分别 `spawnSync('pnpm.cmd', …)` / `execFileSync('npm', …)`——Node ≥20 出于 CVE-2024-27980（批处理参数注入）拒绝在无 shell 的情况下启动 `.cmd`/`.bat` shim，两者在 Windows 上必然 `ENOENT`/`spawnSync` 失败，即 `npm pack` 与发布门禁完全不可用。改为仅在 `win32` 分支上走 shell 并把命令作为**单个定长字面量字符串**传入（args 数组配 shell 已被 Node 弃用；命令行中无任何用户可控文本，临时目录来自 `mkdtemp`），POSIX 路径保持原有 `execFileSync`/args 数组形式不变。另修 `prepack.mjs` 的错误处理顺序：spawn 失败时 `stdout`/`stderr` 是 `undefined` 而非空 buffer，原代码先读 `.length` 会以 `TypeError` 掩盖真正的 spawn 错误——改为先抛 `result.error`
+### 测试
+- 328 项（219 passed / 102 skipped）——与 rc.2 类型和源码树对齐后 `tsc` 零报错，测试通过数与 0.9.0 持平
+- ⚠️ 本机 7 项失败**与本次改动无关，且升级前后完全一致**（已在 rc.6 基线上复现同一组）：`install-script.spec.ts` 4–5 项因 Windows 非管理员 `symlink()` EPERM（测试要构造符号链接场景），`skill-md.spec.ts` 3 项因 `SKILL.md` 在本机 checkout 为 CRLF 行尾、frontmatter 解析器按 `\n` 切分——两者都是 POSIX/CI 环境才成立的前提；`dom-fence.spec.tsx` 单独运行 33 项全绿（并发下偶发超时抖动）。CI（Node 22 + 24，Linux）应维持全绿
+- 发布门禁 `verify-pack` 本地实跑通过：`omdsh-dev-dsh-genui-0.9.1.tgz`，85 个文件、tarball 1.23 MB（上限 3 MB）、解包 4.55 MB（上限 10 MB），必需条目齐全（该门禁此前在 Windows 上根本跑不起来，见上方修复）
+
 ## [0.9.0] - 2026-08-17
 ### 移除（BREAKING）
 - **会话面板（session panel dock）整体移除**：composer 上方的常驻 dock、`/panel` 斜杠命令（含 `/panel <指令>` / `/panel clear`）、面板快照 store 与其 localStorage 条目（`dsh.genui.panel`）、面板拖拽调高、`append` 增量合并与面板级 200 节点 / 200 追加预算、面板重放屏障与本地覆盖，全部删除。删除 `src/client/panel.tsx`、`panel-store.ts`、`panel-command.ts`（−775 行源码）；client 入口不再订阅 `inputTriggers`、不再注册 dock 与面板动作回路

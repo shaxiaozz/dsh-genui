@@ -6,7 +6,7 @@
  * Fails non-zero with the concrete offenders; thresholds are overridable
  * via env (tuning), never silently widened.
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -40,10 +40,14 @@ const required = [
 
 const dir = mkdtempSync(join(tmpdir(), 'genui-pack-'))
 try {
-  const out = execFileSync('npm', ['pack', '--pack-destination', dir, '--json'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // Windows: npm is a `.cmd` shim that Node ≥20 will not spawn without a
+  // shell, so the command goes through one there as a fixed literal string
+  // (an args array under a shell is deprecated). The temp dir comes from
+  // mkdtemp, so no user-controlled text reaches the command line.
+  const args = ['pack', '--pack-destination', dir, '--json']
+  const out = process.platform === 'win32'
+    ? execSync(`npm.cmd ${args.map(a => `"${a}"`).join(' ')}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    : execFileSync('npm', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   const [packed] = JSON.parse(out)
   const paths = new Set(packed.files.map(f => f.path))
   // npm pack reports paths without the leading './' that exports use.
