@@ -1,3 +1,13 @@
 node_modules/
 *.tsbuildinfo
 lib/*.map
+
+# pnpm is the package manager (see packageManager + engines.pnpm). An npm or
+# yarn lockfile here would resolve peers on its own and silently drift from
+# pnpm-lock.yaml — the peer ranges are prerelease-pinned, so a stale one
+# installs the wrong dsh version.
+package-lock.json
+yarn.lock
+
+# Local agent settings — .claude/settings.json holds API credentials.
+.claude/
